@@ -1,0 +1,64 @@
+{
+  "name": "@umituz/react-native-rating",
+  "version": "1.0.0",
+  "description": "Generic app rating system for React Native apps. Shows rating modal after challenges/shares and redirects to store review. SOLID, DRY, KISS principles applied.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "version:patch": "npm version patch -m 'chore: release v%s'",
+    "version:minor": "npm version minor -m 'chore: release v%s'",
+    "version:major": "npm version major -m 'chore: release v%s'"
+  },
+  "keywords": [
+    "react-native",
+    "rating",
+    "review",
+    "app-rating",
+    "store-review",
+    "challenge",
+    "share",
+    "ddd",
+    "domain-driven-design",
+    "solid",
+    "dry",
+    "kiss"
+  ],
+  "author": "Ümit UZ <umit@umituz.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/umituz/react-native-rating"
+  },
+  "peerDependencies": {
+    "@umituz/react-native-storage": "latest",
+    "@umituz/react-native-theme": "latest",
+    "@umituz/react-native-localization": "latest",
+    "@umituz/react-native-design-system": "latest",
+    "react": ">=18.2.0",
+    "react-native": ">=0.74.0",
+    "expo-store-review": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.45",
+    "@types/react-native": "^0.73.0",
+    "@umituz/react-native-storage": "^1.1.0",
+    "@umituz/react-native-theme": "latest",
+    "@umituz/react-native-localization": "latest",
+    "@umituz/react-native-design-system": "latest",
+    "expo-store-review": "^14.0.7",
+    "react": "^18.2.0",
+    "react-native": "^0.74.0",
+    "typescript": "^5.3.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}
+
