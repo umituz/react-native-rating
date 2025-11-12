@@ -1,41 +1,75 @@
 /**
- * React Native Rating - Public API
+ * @umituz/react-native-rating - Public API
  *
- * Generic app rating system for React Native apps. Shows rating modal after
- * challenges/shares and redirects to store review. Follows SOLID, DRY, KISS principles.
+ * Comprehensive rating and review system for React Native apps
+ * Provides star ratings, user reviews, and statistics
  *
  * Usage:
- *   import { useAppRating, RatingModal } from '@umituz/react-native-rating';
- *
- *   const { trackAction, isVisible, hideRating } = useAppRating();
- *
- *   // After challenge/share
- *   await trackAction();
- *
- *   <RatingModal
- *     visible={isVisible}
- *     onClose={hideRating}
- *     onRate={(rating) => console.log('Rated:', rating)}
- *   />
+ *   import { StarRating, StarDisplay, ReviewCard, useRating, useReviews } from '@umituz/react-native-rating';
  */
 
 // =============================================================================
 // DOMAIN LAYER - Entities
 // =============================================================================
 
-export type { RatingOptions, RatingValue } from "./domain/entities/RatingOptions";
+export type {
+  RatingValue,
+  Rating,
+  RatingDistribution,
+  RatingStats,
+} from './domain/entities/Rating';
+
+export type {
+  Review,
+  ReviewFormData,
+} from './domain/entities/Review';
 
 // =============================================================================
-// INFRASTRUCTURE LAYER - Storage and Services
+// DOMAIN LAYER - Utilities
 // =============================================================================
 
-export { useRatingStore } from "./infrastructure/storage/RatingStore";
-export { requestStoreReview, isStoreReviewAvailable } from "./infrastructure/services/StoreReviewService";
+export {
+  calculateAverageRating,
+  calculateDistribution,
+  calculateStats,
+  formatRatingText,
+  sortReviews,
+  roundToHalf,
+  generateReviewId,
+} from './domain/entities/RatingUtils';
+
+export {
+  RATING_CONSTANTS,
+  RATING_COLORS,
+  RATING_STORAGE_KEYS,
+} from './domain/entities/RatingConstants';
 
 // =============================================================================
-// PRESENTATION LAYER - Components and Hooks
+// INFRASTRUCTURE LAYER
 // =============================================================================
 
-export { RatingModal, type RatingModalProps } from "./presentation/components/RatingModal";
-export { useAppRating, type UseAppRatingReturn } from "./presentation/hooks/useAppRating";
+export { useRatingStore } from './infrastructure/storage/RatingStore';
+
+// =============================================================================
+// PRESENTATION LAYER - Hooks
+// =============================================================================
+
+export { useRating } from './presentation/hooks/useRating';
+export type { UseRatingReturn } from './presentation/hooks/useRating';
+
+export { useReviews } from './presentation/hooks/useReviews';
+export type { UseReviewsReturn } from './presentation/hooks/useReviews';
+
+// =============================================================================
+// PRESENTATION LAYER - Components
+// =============================================================================
+
+export { StarRating } from './presentation/components/StarRating';
+export type { StarRatingProps } from './presentation/components/StarRating';
+
+export { StarDisplay } from './presentation/components/StarDisplay';
+export type { StarDisplayProps } from './presentation/components/StarDisplay';
+
+export { ReviewCard } from './presentation/components/ReviewCard';
+export type { ReviewCardProps } from './presentation/components/ReviewCard';
 

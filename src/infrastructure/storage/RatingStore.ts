@@ -1,158 +1,154 @@
 /**
- * Rating Store
+ * Rating Zustand Store
  *
- * Zustand store for managing app rating state
- * Uses @umituz/react-native-storage for persistence
+ * Global state management for ratings and reviews.
  */
 
-import { create } from "zustand";
-import {
-  storageRepository,
-  StorageKey,
-  unwrap,
-} from "@umituz/react-native-storage";
-import type { RatingValue } from "../domain/entities/RatingOptions";
-
-interface RatingState {
-  hasRated: boolean;
-  lastRatingDate: number | null;
-  ratingValue: RatingValue | null;
-  actionCount: number;
-  dismissed: boolean;
-  lastDismissedDate: number | null;
-}
+import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Review, ReviewFormData } from '../../domain/entities/Review';
+import { RatingStats } from '../../domain/entities/Rating';
+import { calculateStats, generateReviewId } from '../../domain/entities/RatingUtils';
+import { RATING_STORAGE_KEYS } from '../../domain/entities/RatingConstants';
 
 interface RatingStore {
-  // State
-  state: RatingState;
+  reviews: Record<string, Review[]>;
+  stats: Record<string, RatingStats>;
   loading: boolean;
 
-  // Actions
-  initialize: (storageKey?: string) => Promise<void>;
-  incrementActionCount: (storageKey?: string) => Promise<void>;
-  setRating: (rating: RatingValue, storageKey?: string) => Promise<void>;
-  setDismissed: (storageKey?: string) => Promise<void>;
-  shouldShowRating: (options: {
-    actionsBeforeRating?: number;
-    daysBetweenRatings?: number;
-  }) => boolean;
-  reset: (storageKey?: string) => Promise<void>;
+  loadReviews: (targetType: string, targetId: string) => Promise<void>;
+  addReview: (targetType: string, targetId: string, data: ReviewFormData, userId: string) => Promise<void>;
+  updateReview: (reviewId: string, data: Partial<ReviewFormData>) => Promise<void>;
+  deleteReview: (reviewId: string) => Promise<void>;
+  markHelpful: (reviewId: string) => Promise<void>;
+  getReviews: (targetType: string, targetId: string) => Review[];
+  getStats: (targetType: string, targetId: string) => RatingStats | null;
 }
 
-const DEFAULT_STORAGE_KEY = StorageKey.ONBOARDING_COMPLETED; // Reuse for now, can be customized
-
-const getDefaultState = (): RatingState => ({
-  hasRated: false,
-  lastRatingDate: null,
-  ratingValue: null,
-  actionCount: 0,
-  dismissed: false,
-  lastDismissedDate: null,
-});
-
 export const useRatingStore = create<RatingStore>((set, get) => ({
-  state: getDefaultState(),
-  loading: true,
+  reviews: {},
+  stats: {},
+  loading: false,
 
-  initialize: async (storageKey = DEFAULT_STORAGE_KEY) => {
-    set({ loading: true });
-
-    const result = await storageRepository.getString(
-      `${storageKey}_rating`,
-      JSON.stringify(getDefaultState()),
-    );
-    const data = unwrap(result, JSON.stringify(getDefaultState()));
-
+  loadReviews: async (targetType: string, targetId: string) => {
+    const key = `${targetType}:${targetId}`;
     try {
-      const state = JSON.parse(data) as RatingState;
-      set({ state, loading: false });
-    } catch {
-      set({ state: getDefaultState(), loading: false });
-    }
-  },
-
-  incrementActionCount: async (storageKey = DEFAULT_STORAGE_KEY) => {
-    const currentState = get().state;
-    const newState: RatingState = {
-      ...currentState,
-      actionCount: currentState.actionCount + 1,
-    };
-
-    await storageRepository.setString(
-      `${storageKey}_rating`,
-      JSON.stringify(newState),
-    );
-
-    set({ state: newState });
-  },
-
-  setRating: async (rating: RatingValue, storageKey = DEFAULT_STORAGE_KEY) => {
-    const newState: RatingState = {
-      ...get().state,
-      hasRated: true,
-      lastRatingDate: Date.now(),
-      ratingValue: rating,
-    };
-
-    await storageRepository.setString(
-      `${storageKey}_rating`,
-      JSON.stringify(newState),
-    );
-
-    set({ state: newState });
-  },
-
-  setDismissed: async (storageKey = DEFAULT_STORAGE_KEY) => {
-    const newState: RatingState = {
-      ...get().state,
-      dismissed: true,
-      lastDismissedDate: Date.now(),
-    };
-
-    await storageRepository.setString(
-      `${storageKey}_rating`,
-      JSON.stringify(newState),
-    );
-
-    set({ state: newState });
-  },
-
-  shouldShowRating: (options) => {
-    const state = get().state;
-    const {
-      actionsBeforeRating = 3,
-      daysBetweenRatings = 90,
-    } = options;
-
-    // Don't show if already rated and within cooldown period
-    if (state.hasRated && state.lastRatingDate) {
-      const daysSinceRating =
-        (Date.now() - state.lastRatingDate) / (1000 * 60 * 60 * 24);
-      if (daysSinceRating < daysBetweenRatings) {
-        return false;
+      set({ loading: true });
+      const stored = await AsyncStorage.getItem(`${RATING_STORAGE_KEYS.REVIEWS}:${key}`);
+      if (stored) {
+        const reviews = JSON.parse(stored) as Review[];
+        const stats = calculateStats(reviews);
+        set((state) => ({
+          reviews: { ...state.reviews, [key]: reviews },
+          stats: { ...state.stats, [key]: stats },
+        }));
       }
+    } catch (error) {
+      // Silent error handling
+    } finally {
+      set({ loading: false });
     }
-
-    // Don't show if dismissed recently (within 7 days)
-    if (state.dismissed && state.lastDismissedDate) {
-      const daysSinceDismissed =
-        (Date.now() - state.lastDismissedDate) / (1000 * 60 * 60 * 24);
-      if (daysSinceDismissed < 7) {
-        return false;
-      }
-    }
-
-    // Show if action count reached threshold
-    return state.actionCount >= actionsBeforeRating;
   },
 
-  reset: async (storageKey = DEFAULT_STORAGE_KEY) => {
-    const defaultState = getDefaultState();
-    await storageRepository.setString(
-      `${storageKey}_rating`,
-      JSON.stringify(defaultState),
-    );
-    set({ state: defaultState });
+  addReview: async (targetType: string, targetId: string, data: ReviewFormData, userId: string) => {
+    const key = `${targetType}:${targetId}`;
+    const review: Review = {
+      id: generateReviewId(),
+      targetId,
+      targetType,
+      userId,
+      rating: data.rating,
+      title: data.title,
+      comment: data.comment,
+      photos: data.photos,
+      helpful: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    set((state) => {
+      const existing = state.reviews[key] || [];
+      const updated = [...existing, review];
+      const stats = calculateStats(updated);
+
+      AsyncStorage.setItem(`${RATING_STORAGE_KEYS.REVIEWS}:${key}`, JSON.stringify(updated));
+
+      return {
+        reviews: { ...state.reviews, [key]: updated },
+        stats: { ...state.stats, [key]: stats },
+      };
+    });
+  },
+
+  updateReview: async (reviewId: string, data: Partial<ReviewFormData>) => {
+    set((state) => {
+      const newReviews = { ...state.reviews };
+      let updated = false;
+
+      Object.keys(newReviews).forEach((key) => {
+        const reviews = newReviews[key];
+        const index = reviews.findIndex((r) => r.id === reviewId);
+        if (index !== -1) {
+          reviews[index] = {
+            ...reviews[index],
+            ...data,
+            updatedAt: Date.now(),
+          };
+          updated = true;
+          AsyncStorage.setItem(`${RATING_STORAGE_KEYS.REVIEWS}:${key}`, JSON.stringify(reviews));
+        }
+      });
+
+      return updated ? { reviews: newReviews } : state;
+    });
+  },
+
+  deleteReview: async (reviewId: string) => {
+    set((state) => {
+      const newReviews = { ...state.reviews };
+      let updated = false;
+
+      Object.keys(newReviews).forEach((key) => {
+        const reviews = newReviews[key];
+        const filtered = reviews.filter((r) => r.id !== reviewId);
+        if (filtered.length !== reviews.length) {
+          newReviews[key] = filtered;
+          updated = true;
+          AsyncStorage.setItem(`${RATING_STORAGE_KEYS.REVIEWS}:${key}`, JSON.stringify(filtered));
+        }
+      });
+
+      return updated ? { reviews: newReviews } : state;
+    });
+  },
+
+  markHelpful: async (reviewId: string) => {
+    set((state) => {
+      const newReviews = { ...state.reviews };
+      let updated = false;
+
+      Object.keys(newReviews).forEach((key) => {
+        const reviews = newReviews[key];
+        const index = reviews.findIndex((r) => r.id === reviewId);
+        if (index !== -1) {
+          reviews[index].helpful = (reviews[index].helpful || 0) + 1;
+          updated = true;
+          AsyncStorage.setItem(`${RATING_STORAGE_KEYS.REVIEWS}:${key}`, JSON.stringify(reviews));
+        }
+      });
+
+      return updated ? { reviews: newReviews } : state;
+    });
+  },
+
+  getReviews: (targetType: string, targetId: string) => {
+    const key = `${targetType}:${targetId}`;
+    return get().reviews[key] || [];
+  },
+
+  getStats: (targetType: string, targetId: string) => {
+    const key = `${targetType}:${targetId}`;
+    return get().stats[key] || null;
   },
 }));
 
